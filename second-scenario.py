@@ -1,7 +1,8 @@
 import pytest
 from selenium import webdriver
 from selenium.webdriver.common.by import By
-import time
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 
 @pytest.fixture
 def browser():
@@ -9,40 +10,56 @@ def browser():
     yield driver
     driver.quit()
 
+class LoginPage:
+    def __init__(self, driver):
+        self.driver = driver
+        self.email_field = (By.ID, 'email')
+        self.password_field = (By.ID, 'password')
+        self.login_button = (By.ID, 'login')
+        self.error_message = (By.ID, 'loginError')
+        self.logged_in_message = (By.XPATH, '//div[contains(text(), "Logged in as")]')
+        self.delete_account_button = (By.ID, 'deleteAccount')
+        self.account_deleted_message = (By.XPATH, '//div[contains(text(), "ACCOUNT DELETED!")]')
+
+    def login(self, email, password):
+        self.driver.find_element(*self.email_field).send_keys(email)
+        self.driver.find_element(*self.password_field).send_keys(password)
+        self.driver.find_element(*self.login_button).click()
+
+    def get_error_message(self):
+        return self.driver.find_element(*self.error_message).text
+
+    def get_logged_in_message(self):
+        return self.driver.find_element(*self.logged_in_message).text
+
+    def delete_account(self):
+        self.driver.find_element(*self.delete_account_button).click()
+
+    def get_account_deleted_message(self):
+        return self.driver.find_element(*self.account_deleted_message).text
+
 def test_login_and_delete_account(browser):
-    # Step 1: Launch browser
+    login_page = LoginPage(browser)
     browser.get("http://automationexercise.com")
 
-    # Step 2: Navigate to url 'http://automationexercise.com'
-    assert "Automation Exercise" in browser.title  # Step 3: Verify that home page is visible successfully
-
-    # Step 4: Click on 'Signup / Login' button
+    assert "Automation Exercise" in browser.title
+    
     signup_login_button = browser.find_element(By.ID, "signupLogin")
     signup_login_button.click()
 
-    # Step 5: Verify 'Login to your account' is visible
     assert "Login to your account" in browser.page_source
 
-    # Step 6: Enter correct email address and password
-    email_input = browser.find_element(By.ID, "email")
-    password_input = browser.find_element(By.ID, "password")
-    email_input.send_keys("test@example.com")
-    password_input.send_keys("Test1234")
+    login_page.login("test@example.com", "Test1234")
 
-    # Step 7: Click 'login' button
-    login_button = browser.find_element(By.ID, "login")
-    login_button.click()
+    WebDriverWait(browser, 10).until(EC.visibility_of_element_located(login_page.logged_in_message))
 
-    # Step 8: Verify that 'Logged in as username' is visible
-    assert "Logged in as" in browser.page_source
+    assert "Logged in as" in login_page.get_logged_in_message()
 
-    # Step 9: Click 'Delete Account' button
-    delete_account_button = browser.find_element(By.ID, "deleteAccount")
-    delete_account_button.click()
+    login_page.delete_account()
 
-    # Step 10: Verify that 'ACCOUNT DELETED!' is visible
-    time.sleep(2)  # Wait for the account deletion process to complete
-    assert "ACCOUNT DELETED!" in browser.page_source
+    WebDriverWait(browser, 10).until(EC.visibility_of_element_located(login_page.account_deleted_message))
+
+    assert "ACCOUNT DELETED!" in login_page.get_account_deleted_message()
 
 if __name__ == "__main__":
     pytest.main(["-v", "--html=report.html"])
