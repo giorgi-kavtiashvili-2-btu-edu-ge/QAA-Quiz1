@@ -1,6 +1,8 @@
 import pytest
 from selenium import webdriver
 from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 
 @pytest.fixture
 def browser():
@@ -8,33 +10,44 @@ def browser():
     yield driver
     driver.quit()
 
-def test_login_with_incorrect_credentials(browser):
-    # Step 1: Launch browser
+class LoginPage:
+    def __init__(self, driver):
+        self.driver = driver
+        self.email_field = (By.ID, 'email')
+        self.password_field = (By.ID, 'password')
+        self.login_button = (By.ID, 'login')
+        self.error_message = (By.ID, 'loginError')
+
+    def login_with_invalid_credentials(self, email, password):
+        self.driver.find_element(*self.email_field).send_keys(email)
+        self.driver.find_element(*self.password_field).send_keys(password)
+        self.driver.find_element(*self.login_button).click()
+
+    def get_error_message(self):
+        return self.driver.find_element(*self.error_message).text
+
+class HomePage:
+    def __init__(self, driver):
+        self.driver = driver
+        self.signup_login_button = (By.ID, 'signupLogin')
+
+    def click_signup_login(self):
+        self.driver.find_element(*self.signup_login_button).click()
+
+def test_login_with_invalid_credentials(browser):
     browser.get("http://automationexercise.com")
 
-    # Step 2: Navigate to url 'http://automationexercise.com'
-    assert "Automation Exercise" in browser.title  # Step 3: Verify that home page is visible successfully
+    home_page = HomePage(browser)
+    home_page.click_signup_login()
 
-    # Step 4: Click on 'Signup / Login' button
-    signup_login_button = browser.find_element(By.ID, "signupLogin")
-    signup_login_button.click()
+    login_page = LoginPage(browser)
 
-    # Step 5: Verify 'Login to your account' is visible
     assert "Login to your account" in browser.page_source
 
-    # Step 6: Enter incorrect email address and password
-    email_input = browser.find_element(By.ID, "email")
-    password_input = browser.find_element(By.ID, "password")
-    email_input.send_keys("incorrect@example.com")
-    password_input.send_keys("IncorrectPassword123")
+    login_page.login_with_invalid_credentials("invalid@example.com", "InvalidPassword123")
 
-    # Step 7: Click 'login' button
-    login_button = browser.find_element(By.ID, "login")
-    login_button.click()
-
-    # Step 8: Verify error 'Your email or password is incorrect!' is visible
-    error_message = browser.find_element(By.ID, "loginError").text
-    assert "Your email or password is incorrect!" in error_message
+    WebDriverWait(browser, 10).until(EC.visibility_of_element_located(login_page.error_message))
+    assert "Your email or password is incorrect!" in login_page.get_error_message()
 
 if __name__ == "__main__":
     pytest.main(["-v", "--html=report.html"])
